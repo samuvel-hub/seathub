@@ -2,9 +2,9 @@ const express = require('express');
 const router = express.Router();
 const Reservation = require('../models/Reservation');
 const Seat = require('../models/Seat');
-const { protect } = require('../middleware/auth');
+const { protect, adminOnly } = require('../middleware/auth');
 
-router.get('/', protect, async (req, res) => {
+router.get('/', protect, adminOnly, async (req, res) => {
   try {
     const reservations = await Reservation.find()
       .populate('serviceId', 'name date time')
@@ -14,7 +14,7 @@ router.get('/', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-router.post('/', protect, async (req, res) => {
+router.post('/', protect, adminOnly, async (req, res) => {
   try {
     const { seatIds, ...data } = req.body;
     const reservation = await Reservation.create({ ...data, seatIds, createdBy: req.user._id });
@@ -28,7 +28,7 @@ router.post('/', protect, async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
 
-router.patch('/:id', protect, async (req, res) => {
+router.patch('/:id', protect, adminOnly, async (req, res) => {
   try {
     const reservation = await Reservation.findByIdAndUpdate(req.params.id, req.body, { new: true });
     if (!reservation) return res.status(404).json({ message: 'Reservation not found' });

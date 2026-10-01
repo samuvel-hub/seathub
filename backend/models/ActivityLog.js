@@ -7,6 +7,9 @@ const activityLogSchema = new mongoose.Schema({
   seatId: { type: String, default: '' },
   seatLabel: { type: String, default: '' },
   details: { type: String, default: '' },
+  eventId: { type: String, default: '', index: true },
+  organization: { type: String, default: '' },
+  organizationId: { type: String, default: '', index: true },
   timestamp: { type: Date, default: Date.now },
 });
 

@@ -17,27 +17,44 @@ export default function SeatDetailsModal({ seat, onClose }) {
 
   const seatIsOccupied = seat.status === 'occupied';
   const seatIsBlocked  = seat.status === 'blocked';
+  const seatIsReserved = seat.status === 'reserved';
 
-  // Non-admin: read-only if seat is occupied or blocked
-  const isReadOnly = !isAdmin && (seatIsOccupied || seatIsBlocked);
+  // Non-admin can only book available seats
+  const isReadOnly = !isAdmin && (seatIsOccupied || seatIsBlocked || seatIsReserved);
 
-  const [status, setStatus] = useState(seat.status);
+  const [status, setStatus] = useState(!isAdmin && seat.status === 'available' ? 'occupied' : seat.status);
+  const [category] = useState(
+    (seat.category && seat.category !== 'men' && seat.category !== 'women') ? seat.category : 'general'
+  );
   const [notes, setNotes] = useState(seat.notes || '');
-  const [assignedName, setAssignedName] = useState(seat.assignedName || '');
+  const [assignedName, setAssignedName] = useState(
+    seat.assignedName || (user?.name && user.name !== 'Guest Attendee' ? user.name : '')
+  );
   const [saving, setSaving] = useState(false);
 
   const handleSave = async () => {
-    if (!isAdmin && seatIsOccupied) {
-      alert('Only admins can change an occupied seat.');
+    if (!isAdmin && (seatIsOccupied || seatIsBlocked || seatIsReserved)) {
+      alert('Only administrators can modify occupied, reserved, or blocked seats.');
       return;
     }
-    if (!isAdmin && (status === 'blocked' || seatIsBlocked)) {
-      alert('Only admins can block or unblock seats.');
+    if (!isAdmin && (status === 'blocked' || status === 'reserved')) {
+      alert('Only administrators can block or reserve seats.');
       return;
     }
+
     setSaving(true);
     try {
-      await updateSeat(seat.seatId, { status, notes, assignedName });
+      const finalName = assignedName.trim() || (isAdmin ? '' : 'Guest Attendee');
+      await updateSeat(
+        seat._id || seat.seatId,
+        {
+          status: isAdmin ? status : 'occupied',
+          category,
+          notes: notes.trim(),
+          assignedName: finalName,
+        },
+        seat.serviceId
+      );
       onClose();
     } catch (e) {
       alert('Error: ' + (e.response?.data?.message || e.message));
@@ -46,12 +63,11 @@ export default function SeatDetailsModal({ seat, onClose }) {
     }
   };
 
-  // Decide if a status button should be disabled
+  // Decide if a status button should be disabled for admin view
   const isStatusDisabled = (s) => {
-    if (isAdmin) return false;       // Admin can do anything
-    if (seatIsOccupied) return true; // User: occupied seat is fully locked
-    if (seatIsBlocked) return true;  // User: blocked seat is fully locked
-    if (s === 'blocked') return true; // User: can never block
+    if (isAdmin) return false;
+    if (seatIsOccupied || seatIsBlocked || seatIsReserved) return true;
+    if (s === 'blocked' || s === 'reserved') return true;
     return false;
   };
 
@@ -59,142 +75,181 @@ export default function SeatDetailsModal({ seat, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
         {/* Header */}
-        <div className="p-6 border-b border-gray-100">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Seat Details</h2>
-              <p className="text-sm text-gray-500">{seat.section} — Row {seat.row}, Seat {seat.number}</p>
-            </div>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">
+              {!isAdmin && seat.status === 'available' ? 'Book Seat' : 'Seat Details'}
+            </h2>
+            <p className="text-xs sm:text-sm text-gray-500 mt-0.5">
+              {seat.section} — Row {seat.row}, Seat #{seat.number}
+            </p>
           </div>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-2xl leading-none p-1 rounded-lg"
+          >
+            &times;
+          </button>
         </div>
 
-        <div className="p-6 space-y-4">
-
-          {/* 🔒 Occupied lock banner — shown to non-admin */}
+        <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+          {/* Lock banners for guests */}
           {!isAdmin && seatIsOccupied && (
-            <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-3">
-              <span className="text-xl mt-0.5">🔒</span>
+            <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-2xl p-3.5">
+              <span className="text-xl">🔒</span>
               <div>
                 <p className="text-sm font-semibold text-red-700">Seat Already Occupied</p>
                 <p className="text-xs text-red-500 mt-0.5">
-                  This seat is taken{assignedName ? ' by ' + assignedName : ''}. Only an <strong>Admin</strong> can release or reassign it.
+                  This seat is taken{seat.assignedName ? ' by ' + seat.assignedName : ''}. Only an <strong>Admin</strong> can release or reassign it.
                 </p>
               </div>
             </div>
           )}
 
-          {/* 🚫 Blocked lock banner — shown to non-admin */}
           {!isAdmin && seatIsBlocked && (
-            <div className="flex items-start gap-3 bg-gray-100 border border-gray-300 rounded-xl p-3">
-              <span className="text-xl mt-0.5">🚫</span>
+            <div className="flex items-start gap-3 bg-gray-100 border border-gray-300 rounded-2xl p-3.5">
+              <span className="text-xl">🚫</span>
               <div>
                 <p className="text-sm font-semibold text-gray-700">Seat is Blocked</p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  Only an <strong>Admin</strong> can unblock this seat.
+                  This seat is temporarily blocked. Only an <strong>Admin</strong> can unblock it.
                 </p>
               </div>
             </div>
           )}
 
-          {/* Status Buttons */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-2">Status</label>
-            <div className="grid grid-cols-3 gap-2">
-              {allStatuses.map(s => {
-                const disabled = isStatusDisabled(s);
-                const isOccupiedOrBlockedBtn = s === 'blocked' || (seatIsOccupied && !isAdmin);
-                return (
-                  <div key={s} className="relative">
-                    <button
-                      onClick={() => !disabled && setStatus(s)}
-                      disabled={disabled}
-                      title={disabled && !isAdmin ? 'Admin only' : ''}
-                      className={
-                        'w-full px-2 py-1.5 rounded-lg text-xs font-medium border capitalize transition-all ' +
-                        (disabled
-                          ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                          : status === s
-                            ? STATUS_COLORS[s] + ' ring-2 ring-offset-1 ring-blue-400'
-                            : 'border-gray-200 text-gray-500 hover:bg-gray-50')
-                      }
-                    >
-                      {s}
-                    </button>
-                    {/* Admin badge on restricted buttons */}
-                    {disabled && !isAdmin && (
-                      <span className="absolute -top-2 -right-1 bg-orange-500 text-white text-[9px] px-1 rounded-full leading-4 font-semibold pointer-events-none">
-                        Admin
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {!isAdmin && !seatIsOccupied && !seatIsBlocked && (
-              <p className="mt-2 text-xs text-orange-500">
-                🔒 Blocking seats and releasing occupied seats require Admin access.
-              </p>
-            )}
-          </div>
-
-          {/* Assigned To */}
-          {(status === 'occupied' || status === 'reserved') && (
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Assigned To</label>
-              <input
-                value={assignedName}
-                onChange={e => !isReadOnly && setAssignedName(e.target.value)}
-                readOnly={isReadOnly}
-                placeholder={isReadOnly ? (assignedName || '—') : 'Guest name...'}
-                className={
-                  'w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ' +
-                  (isReadOnly
-                    ? 'border-gray-100 bg-gray-50 text-gray-500 cursor-default'
-                    : 'border-gray-200 focus:ring-2 focus:ring-blue-500')
-                }
-              />
+          {!isAdmin && seatIsReserved && (
+            <div className="flex items-start gap-3 bg-purple-50 border border-purple-200 rounded-2xl p-3.5">
+              <span className="text-xl">🟣</span>
+              <div>
+                <p className="text-sm font-semibold text-purple-700">Reserved Seat</p>
+                <p className="text-xs text-purple-500 mt-0.5">
+                  This seat is reserved for pastoral staff, choir, or special guests.
+                </p>
+              </div>
             </div>
           )}
 
-          {/* Notes */}
-          <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Notes</label>
-            <textarea
-              value={notes}
-              onChange={e => !isReadOnly && setNotes(e.target.value)}
-              readOnly={isReadOnly}
-              rows={2}
-              placeholder={isReadOnly ? (notes || '—') : 'Optional notes...'}
-              className={
-                'w-full border rounded-lg px-3 py-2 text-sm focus:outline-none ' +
-                (isReadOnly
-                  ? 'border-gray-100 bg-gray-50 text-gray-500 cursor-default'
-                  : 'border-gray-200 focus:ring-2 focus:ring-blue-500')
-              }
-            />
-          </div>
+          {/* Attendee Booking Fields (Guest Flow) */}
+          {!isAdmin && seat.status === 'available' && (
+            <div className="space-y-4">
+              <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 text-xs text-emerald-800">
+                You are booking <strong>Row {seat.row}, Seat {seat.number}</strong> in {seat.section}. Please enter attendee details below to confirm.
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Attendee / Family Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={assignedName}
+                  onChange={e => setAssignedName(e.target.value)}
+                  placeholder="e.g. John Doe"
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">
+                  Optional Notes (Special needs, etc.)
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Optional note..."
+                  className="w-full border border-gray-200 rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Admin Controls */}
+          {isAdmin && (
+            <div className="space-y-4">
+              {/* Status Buttons */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1.5">Status</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {allStatuses.map(s => {
+                    const disabled = isStatusDisabled(s);
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => !disabled && setStatus(s)}
+                        disabled={disabled}
+                        className={
+                          'w-full px-2 py-1.5 rounded-lg text-xs font-medium border capitalize transition-all ' +
+                          (disabled
+                            ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                            : status === s
+                              ? STATUS_COLORS[s] + ' ring-2 ring-blue-500 font-bold'
+                              : 'border-gray-200 text-gray-500 hover:bg-gray-50')
+                        }
+                      >
+                        {s}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Assigned To */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Assigned Name</label>
+                <input
+                  value={assignedName}
+                  onChange={e => setAssignedName(e.target.value)}
+                  placeholder="Attendee name..."
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Optional notes..."
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
         <div className="p-6 border-t border-gray-100 flex gap-3">
           <button
+            type="button"
             onClick={onClose}
-            className="flex-1 border border-gray-200 rounded-lg py-2 text-sm text-gray-600 hover:bg-gray-50"
+            className="flex-1 border border-gray-200 rounded-xl py-2.5 text-sm text-gray-600 hover:bg-gray-50 font-medium transition"
           >
             {isReadOnly ? 'Close' : 'Cancel'}
           </button>
           {!isReadOnly && (
             <button
+              type="button"
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 bg-blue-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              className={
+                'flex-1 text-white rounded-xl py-2.5 text-sm font-semibold transition shadow-sm disabled:opacity-50 cursor-pointer ' +
+                (!isAdmin
+                  ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20'
+                  : 'bg-blue-600 hover:bg-blue-700 shadow-blue-500/20')
+              }
             >
-              {saving ? 'Saving...' : 'Save Changes'}
+              {saving
+                ? 'Processing...'
+                : !isAdmin
+                  ? 'Confirm Booking'
+                  : 'Save Changes'}
             </button>
           )}
         </div>

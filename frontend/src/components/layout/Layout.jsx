@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 
 export default function Layout() {
   const { user, loading } = useAuth();
+  const [mobileOpen, setMobileOpen] = React.useState(false);
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -20,10 +21,13 @@ export default function Layout() {
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-50">
-      <Navbar />
-      <div className="flex flex-1">
-        <Sidebar />
-        <main className="flex-1 p-6 max-w-7xl w-full mx-auto">
+      <Navbar onToggleMobileMenu={() => setMobileOpen(prev => !prev)} />
+      <div className="flex flex-1 relative">
+        <Sidebar
+          mobileOpen={mobileOpen}
+          onCloseMobile={() => setMobileOpen(false)}
+        />
+        <main className="flex-1 p-3 sm:p-4 md:p-6 max-w-7xl w-full mx-auto overflow-x-hidden">
           <Outlet />
         </main>
       </div>

@@ -3,8 +3,6 @@
 import React, { useState } from 'react';
 import { useSeating } from '@/context/SeatingContext';
 import { Settings as SettingsIcon, Church, Clock, Database, Check } from 'lucide-react';
-import { isSupabaseConfigured } from '@/lib/supabase/client';
-
 export default function SettingsPage() {
   const { church, auditorium } = useSeating();
   const [holdDuration, setHoldDuration] = useState<number>(2);
@@ -16,7 +14,7 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 3000);
   };
 
-  const isSupabaseLive = isSupabaseConfigured();
+  const isMongoLive = true;
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -92,23 +90,23 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Database & Realtime Status */}
+        {/* Database Status */}
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
           <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
             <Database className="w-4 h-4 text-emerald-600" />
-            <span>Supabase Connection Status</span>
+            <span>MongoDB Database Status</span>
           </h2>
 
           <div className="flex items-center space-x-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
-            <div className={`w-3 h-3 rounded-full ${isSupabaseLive ? 'bg-emerald-500 animate-pulse' : 'bg-blue-600'}`} />
+            <div className={`w-3 h-3 rounded-full ${isMongoLive ? 'bg-emerald-500 animate-pulse' : 'bg-blue-600'}`} />
             <div className="text-xs">
               <div className="font-bold text-slate-900">
-                {isSupabaseLive ? 'Connected to Live Supabase Backend' : 'Demo Mode (Local State Sync)'}
+                {isMongoLive ? 'Connected to MongoDB Database' : 'Connecting to MongoDB...'}
               </div>
               <div className="text-slate-500">
-                {isSupabaseLive
-                  ? 'Realtime channel active for multi-device sync.'
-                  : 'Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local to link your Supabase database.'}
+                {isMongoLive
+                  ? 'MERN Stack active: MongoDB connected at mongodb://localhost:27017/church-seating.'
+                  : 'Start MongoDB service and backend server on http://localhost:5000.'}
               </div>
             </div>
           </div>

@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useSeating } from '../context/SeatingContext';
 
 export default function Activity() {
   const { activityLogs, loading, fetchAll } = useSeating();
+
+  useEffect(() => {
+    fetchAll();
+  }, [fetchAll]);
 
   const actionColor = (action) => {
     if (action.includes('occupied') || action.includes('ASSIGNED')) return 'bg-red-100 text-red-700';
@@ -14,10 +18,10 @@ export default function Activity() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm flex items-center justify-between">
+      <div className="bg-white border border-gray-200 rounded-2xl p-4 sm:p-6 shadow-sm flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-gray-900">Activity Log</h1>
-          <p className="text-sm text-gray-500">Real-time log of all seat and service changes.</p>
+          <p className="text-xs sm:text-sm text-gray-500">Real-time log of all seat and event changes.</p>
         </div>
         <button onClick={fetchAll} className="border border-gray-200 text-gray-600 px-3 py-2 rounded-xl text-sm hover:bg-gray-50">↻ Refresh</button>
       </div>

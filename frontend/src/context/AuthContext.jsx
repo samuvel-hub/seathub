@@ -26,14 +26,31 @@ export function AuthProvider({ children }) {
     return res.data.user;
   };
 
+  const register = async ({ name, organization, email, password }) => {
+    const res = await API.post('/auth/register', { name, organization, email, password });
+    localStorage.setItem('auth_token', res.data.token);
+    setUser(res.data.user);
+    return res.data.user;
+  };
+
+  const guestLogin = async () => {
+    const res = await API.post('/auth/guest-login');
+    localStorage.setItem('auth_token', res.data.token);
+    setUser(res.data.user);
+    return res.data.user;
+  };
+
   const logout = () => {
     localStorage.removeItem('auth_token');
     setUser(null);
     window.location.href = '/login';
   };
 
+  const isGuest = Boolean(user?.role === 'guest' || user?.isGuest);
+  const isAdmin = Boolean(user?.role === 'admin');
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, register, guestLogin, logout, isGuest, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

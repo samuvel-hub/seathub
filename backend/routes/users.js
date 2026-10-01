@@ -5,7 +5,14 @@ const { protect, adminOnly } = require('../middleware/auth');
 
 router.get('/', protect, adminOnly, async (req, res) => {
   try {
-    const users = await User.find().sort({ createdAt: -1 });
+    const filter = {};
+    if (req.user && req.user.email !== 'admin@church.com') {
+      filter.$or = [
+        { organization: req.user.organization },
+        { _id: req.user._id }
+      ];
+    }
+    const users = await User.find(filter).sort({ createdAt: -1 });
     res.json(users);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });
@@ -13,9 +20,21 @@ router.get('/', protect, adminOnly, async (req, res) => {
 router.post('/', protect, adminOnly, async (req, res) => {
   try {
     const { name, email, password, role } = req.body;
+    if (role && role !== 'admin') {
+      return res.status(400).json({
+        message: 'Normal-user account creation has been disabled. Attendees access the system directly as Guests without an account.'
+      });
+    }
     const exists = await User.findOne({ email });
     if (exists) return res.status(400).json({ message: 'Email already exists' });
-    const user = await User.create({ name, email, password: password || 'password123', role });
+    const user = await User.create({
+      name,
+      email,
+      password: password || 'password123',
+      role: 'admin',
+      organization: req.user.organization || 'General Organization',
+      organizationId: req.user.organizationId || req.user._id.toString(),
+    });
     res.status(201).json(user);
   } catch (err) { res.status(500).json({ message: err.message }); }
 });

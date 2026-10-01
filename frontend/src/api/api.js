@@ -13,7 +13,9 @@ API.interceptors.response.use(
   (err) => {
     if (err.response?.status === 401) {
       localStorage.removeItem('auth_token');
-      window.location.href = '/login';
+      if (!window.location.pathname.startsWith('/guest')) {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(err);
   }
