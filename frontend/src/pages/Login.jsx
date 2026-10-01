@@ -65,10 +65,14 @@ export default function Login() {
         }
       }
     } catch (err) {
-      setAdminError(
-        err.response?.data?.message ||
-        (isRegisterMode ? 'Registration failed. Please try again.' : 'Invalid administrator credentials')
-      );
+      if (!err.response) {
+        setAdminError('Cannot connect to backend server. Please verify the backend is running on port 5000.');
+      } else {
+        setAdminError(
+          err.response?.data?.message ||
+          (isRegisterMode ? 'Registration failed. Please try again.' : 'Invalid administrator credentials')
+        );
+      }
     } finally {
       setAdminLoading(false);
     }
