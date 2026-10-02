@@ -66,7 +66,7 @@ export default function Login() {
       }
     } catch (err) {
       if (!err.response) {
-        setAdminError('Cannot connect to backend server. Please verify the backend is running on port 5000.');
+        setAdminError(`Cannot connect to backend server (${API.defaults.baseURL}). Please verify your Render backend URL is live and VITE_API_URL is configured on Vercel.`);
       } else {
         setAdminError(
           err.response?.data?.message ||
